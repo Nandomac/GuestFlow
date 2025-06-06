@@ -1,0 +1,1385 @@
+@extends('layouts.layout')
+
+@php
+    $title='Workcenter';
+    $subTitle = 'Backoffice / Workcenters List';
+    $script= "<script>
+
+        var iTableCounter = 1;
+        var oTable;
+        var TableHtml;
+        var oInnerTable;
+        var objGridTable;
+        var objInnerTable;
+        var gridTableHtml;
+
+        function sync() {
+
+            Swal.loading('Please wait while synchronizing');
+
+            $.ajax({
+                type: 'GET',
+                url: '". route('workcenter.sync') ."',
+                success: function(response) {
+                    Swal.close();
+                    const message = response.responseJSON?.message || ''
+
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ syncDowntime() });
+
+                },
+                error: function(response) {
+                    const message = response.responseJSON?.message || 'Unknown error.'
+                    Swal.close();
+                    Swal.alert('Error', message, 'error');
+                }
+            });
+        }
+
+        function syncDowntime() {
+
+            Swal.loading('Please wait updating Global Downtimes');
+
+            $.ajax({
+                type: 'GET',
+                url: '". route('workcenter.syncDowntimes') ."',
+                success: function(response) {
+                    Swal.close();
+                    const message = response.responseJSON?.message || ''
+
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ location.reload(); });
+
+                },
+                error: function(response) {
+                    const message = response.responseJSON?.message || 'Unknown error.'
+                    Swal.close();
+                    Swal.alert('Error', message, 'error');
+                }
+            });
+        }
+
+        function workcenter_details(id) {
+            Swal.loading();
+            $.ajax({
+                type: 'GET',
+                url: '". route('workcenter.details', null) ."/' + id,
+                success: function(result) {
+                    Swal.close();
+                    $('#headerWorcenterDetail').empty();
+                    $('#headerWorcenterDetail').html(result[0]);
+
+					$('#default-info').empty();
+					$('#default-info').html(result[1]);
+
+                    $('#default-downtime').empty();
+                    $('#default-downtime').html(result[2]);
+
+                    $('#default-profile').empty();
+                    $('#default-profile').html(result[3]);
+
+                    $('#default-setup').empty();
+                    $('#default-setup').html(result[4]);
+
+                    nestedTable(id);
+                    showTableValidation(id);
+                },
+                error: function(response) {
+                    const message = response.responseJSON?.message || 'Unknown error.'
+                    Swal.close();
+                    Swal.alert('Error', message, 'error');
+                }
+            });
+        }
+
+        function toggleDowntime(downtimeId, workcenterId, isChecked) {
+			Swal.loading();
+            $.ajax({
+                type: 'POST',
+                url: '". route('workcenter.toggleDowntime') ."',
+                data: {
+                    downtimeId: downtimeId,
+                    workcenterId: workcenterId,
+                    isChecked: isChecked,
+                    _token: '". csrf_token() ."'
+                },
+                success: function(response) {
+                    Swal.close();
+
+                    if (isChecked) {
+                        $('#btnEmailListModal_'+downtimeId).prop('disabled', false).removeClass('btn text-white px-4 py-2 rounded bg-gray-400 cursor-not-allowed').addClass('btn bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded');
+                    } else {
+                        $('#btnEmailListModal_'+downtimeId).prop('disabled', true).removeClass('btn bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded').addClass('btn text-white px-4 py-2 rounded bg-gray-400 cursor-not-allowed');
+                    }
+
+                },
+                error: function(response) {
+                    Swal.close();
+                    Swal.alert('Error', response.message, 'error');
+                }
+            });
+        }
+
+        function openEmailListModal(downtimeId, workcenterId){
+            Swal.loading();
+            $.ajax({
+                type: 'GET',
+                url: '". route('workcenter.mail-list', []) ."/' + workcenterId + '/' + downtimeId,
+                success: function(result) {
+                    Swal.close();
+
+                    $('#divDowntimeList').hide();
+                    $('#divMailList').empty();
+                    $('#divMailList').html(result);
+                },
+                error: function(response) {
+                    Swal.close();
+                    Swal.alert('Error', response.message, 'error');
+                }
+            });
+        }
+
+        function backDowntimeList(){
+            $('#divMailList').empty();
+            $('#divDowntimeList').show();
+        }
+
+        function mailListSave(workcenter_structure_id, downtime_cause_id){
+            Swal.loading();
+
+            let form = $('#form_mail_list')[0];
+            let formData = new FormData(form);
+
+            $.ajax({
+                type: 'POST',
+                url: '". route("workcenter.mail-list-save") ."',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name=\"csrf-token\"]').attr('content')
+                },
+                success: function(response) {
+                    Swal.close();
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ openEmailListModal(downtime_cause_id, workcenter_structure_id) });
+                },
+                error: function(response) {
+                    Swal.close();
+
+                    const message = response.responseJSON?.message || 'Unknown error.';
+                    const errors = response.responseJSON?.errors || '';
+                    let errorMessages = '';
+
+                    if (errors != '') {
+
+                        for (let field in errors) {
+                            errorMessages += errors[field].join('<br>') + '<br>';
+                        }
+                    } else {
+                        errorMessages = message;
+                    }
+
+                    Swal.alert('Error', errorMessages, 'error');
+
+                }
+            });
+        }
+
+        function mailListClear(workcenter_structure_id, downtime_cause_id){
+            openEmailListModal(downtime_cause_id, workcenter_structure_id)
+        }
+
+        function mailListRemove(id, workcenter_structure_id, downtime_cause_id){
+
+            Swal.alert_dialog_confirmation(
+                'Confirm Remove?',
+                'Waiting decision',
+                null,
+                function() {
+                    $.ajax({
+                        type: 'DELETE',
+                        url: '". route("workcenter.mail-list-remove", null) ."/' + id,
+                        data: {
+                            workcenter_downtime_emails_id: id,
+                            _token: '". csrf_token() ."'
+                        },
+                        success: function(response) {
+                            Swal.close();
+
+                            if (response.success) {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ openEmailListModal(downtime_cause_id, workcenter_structure_id) });
+                            } else {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){ openEmailListModal(downtime_cause_id, workcenter_structure_id) });
+                            }
+                        },
+                        error: function(response) {
+                            Swal.close();
+                            Swal.alert('Error', response.message, 'error');
+                        }
+                    });
+                },
+                function() {
+
+                },
+                'Yes',
+                'No'
+            );
+
+
+        }
+
+        function mailListEdit(id, workcenter_structure_id, downtime_cause_id, email){
+            Swal.loading();
+            $('#workcenter_downtime_id').val(workcenter_structure_id);
+            $('#id').val(id);
+            $('#email').val(email);
+            $('#emailOld').val(email);
+            Swal.close();
+        }
+
+        function preSaveInfo(file_input, workcenter_structure_id, structure_type, structure_code, multibatch) {
+            Swal.loading();
+            if (multibatch == 'null') {
+                multibatch = null;
+            }
+
+            const file = document.querySelector('#file_input').files[0];
+            var formData = new FormData();
+
+            if (structure_type != 'WC') {
+
+                    Swal.alert_dialog_confirmation_whit_dany(
+                        'Do you want the changes to modify all levels below this one?',
+                        'Waiting decision',
+                        null,
+                        function() {
+
+                            if (file) {
+                                formData.append('file_input', file);
+                            }
+
+                            formData.append('info_input_all', true);
+                            formData.append('workcenter_structure_id', workcenter_structure_id);
+                            formData.append('structure_type', structure_type);
+                            formData.append('structure_code', structure_code);
+                            formData.append('multibatch', multibatch);
+                            formData.append('_token', '". csrf_token() ."');
+                            saveInfo(formData);
+
+
+                        },
+                        function() {
+
+                            if (file) {
+                                formData.append('file_input', file);
+                            }
+
+                            formData.append('info_input_all', false);
+                            formData.append('workcenter_structure_id', workcenter_structure_id);
+                            formData.append('structure_type', structure_type);
+                            formData.append('structure_code', structure_code);
+                            formData.append('multibatch', multibatch);
+                            formData.append('_token', '". csrf_token() ."');
+                            saveInfo(formData);
+
+                        },
+                        function() {
+
+                            Swal.alert_auto_close('Cancel', 'Please Wait...', 'info');
+
+                        },
+                        'Yes to all',
+                        'Cancel',
+                        'Only in this'
+                    );
+
+
+
+            } else {
+
+                if (file) {
+                    formData.append('file_input', file);
+                }
+
+                formData.append('info_input_all', false);
+                formData.append('workcenter_structure_id', workcenter_structure_id);
+                formData.append('structure_type', structure_type);
+                formData.append('structure_code', structure_code);
+                formData.append('multibatch', multibatch);
+                formData.append('_token', '". csrf_token() ."');
+
+                saveInfo(formData);
+
+            }
+
+
+        }
+
+        function saveInfo(formData) {
+            Swal.loading();
+            $.ajax({
+                type: 'POST',
+                url: '". route('workcenter.saveInfo') ."',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ });
+                },
+                error: function(response) {
+                    Swal.close();
+
+                    const message = response.responseJSON?.message || 'Unknown error.';
+                    const errors = response.responseJSON?.errors || '';
+                    let errorMessages = '';
+
+                    if (errors != '') {
+
+                        for (let field in errors) {
+                            errorMessages += errors[field].join('<br>') + '<br>';
+                        }
+                    } else {
+                        errorMessages = message;
+                    }
+
+                    Swal.alert('Error', errorMessages, 'error');
+
+                }
+            });
+        }
+
+        function saveCharacteristic(characteristic_id, cols_input, order_input, workcenter_structure_id, template_id) {
+            Swal.loading();
+
+            const formData = new FormData();
+            formData.append('_token', '". csrf_token() ."');
+            formData.append('characteristic_id', characteristic_id);
+            formData.append('cols_input', cols_input);
+            formData.append('order_input', order_input);
+            formData.append('workcenter_structure_id', workcenter_structure_id);
+            formData.append('template_id', template_id);
+
+            $.ajax({
+                type: 'POST',
+                url: '". route('workcenter.saveWorkCenterCharacteristicValidation') ."',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    Swal.close();
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function () {
+                    if(template_id) {
+                        getWorkCenterCharacteristic(workcenter_structure_id);
+
+                    } else {
+                        Swal.alert_dialog_confirmation(
+                            'Want to add more characteristics to template?',
+                            'Waiting decision',
+                            null,
+                            function () {
+                                hideTableShowForm(workcenter_structure_id);
+                                $('#search').val('');
+                                $('#cols_input').val('');
+                                $('#order_input').val('');
+                                $('#characteristic_selected').val('');
+                                $('#characteristic_search').val('');
+
+
+                            },
+                            function () {
+                                getWorkCenterCharacteristic(workcenter_structure_id);
+                            },
+                            'Yes',
+                            'No'
+                        );
+                        }
+                    });
+                },
+                error: function (response) {
+                    Swal.close();
+                    const message = response.responseJSON?.message || 'Unknown error.';
+                    const errors = response.responseJSON?.errors || '';
+                    let errorMessages = '';
+
+                    if (errors !== '') {
+                        for (let field in errors) {
+                            errorMessages += errors[field].join('<br>') + '<br>';
+                        }
+                    } else {
+                        errorMessages = message;
+                    }
+
+                    Swal.alert('Error', errorMessages, 'error');
+                }
+            });
+        }
+
+        function getWorkCenterCharacteristic (id) {
+            Swal.loading();
+            $.ajax({
+                type: 'GET',
+                url: '". route('workcenter.getWorkCenterCharacteristic', null) ."/' + id,
+
+                success: function(result) {
+                    Swal.close();
+                    $('#default-profile').empty();
+                    $('#default-profile').html(result);
+                    showTableValidation(id);
+                },
+                error: function(response) {
+                    Swal.close();
+                    Swal.alert('Error', response.message, 'error');
+                }
+            });
+        }
+
+        function deleteCharacteristic (template_id, workcenter_structure_id) {
+
+            Swal.alert_dialog_confirmation(
+                'Confirm Remove?',
+                'Waiting decision',
+                null,
+                function() {
+                    $.ajax({
+                        type: 'DELETE',
+                        url: '". route('workcenter.templateRemove', null) ."/' + template_id + '/' + workcenter_structure_id,
+                        data: {
+                            id: template_id,
+                            _token: '". csrf_token() ."'
+                        },
+                        success: function(response) {
+                            Swal.close();
+                            if (response.success) {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ getWorkCenterCharacteristic(workcenter_structure_id); });
+                            } else {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){ getWorkCenterCharacteristic(workcenter_structure_id); });
+                            }
+                        },
+                        error: function(response) {
+                            Swal.close();
+                            Swal.alert('Error', response.message, 'error');
+                        }
+                    });
+                },
+                function() {
+
+                },
+                'Yes',
+                'No'
+            );
+        }
+
+        function saveCharacteristicSetup (characteristic_id, groupCharacteristic_id, cols_input, order_input, workcenter_structure_id, template_id, characteristic_group_order) {
+            Swal.loading();
+
+            const formData = new FormData();
+            formData.append('_token', '". csrf_token() ."');
+            formData.append('characteristic_id', characteristic_id);
+            formData.append('groupCharacteristic_id', groupCharacteristic_id);
+            formData.append('cols_input', cols_input);
+            formData.append('order_input', order_input);
+            formData.append('workcenter_structure_id', workcenter_structure_id);
+            formData.append('template_id', template_id);
+            formData.append('characteristic_group_order', characteristic_group_order);
+
+                $.ajax({
+                type: 'POST',
+                url: '". route('workcenter.saveWorkCenterCharacteristicSetup') ."',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    Swal.close();
+
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function () {
+
+                        Swal.alert_dialog_confirmation(
+                            'Want to add more characteristics to template?',
+                            'Waiting decision',
+                            null,
+                            function () {
+                                addTemplateSetupCharacteristic(workcenter_structure_id, groupCharacteristic_id);
+                            },
+                            function () {
+                                showTableSetup(workcenter_structure_id);
+
+                            },
+                            'Yes',
+                            'No'
+                        );
+
+                    });
+                },
+                error: function (response) {
+                    Swal.close();
+                    const message = response.responseJSON?.message || 'Unknown error.';
+                    const errors = response.responseJSON?.errors || '';
+                    let errorMessages = '';
+
+                    if (errors !== '') {
+                        for (let field in errors) {
+                            errorMessages += errors[field].join('<br>') + '<br>';
+                        }
+                    } else {
+                        errorMessages = message;
+                    }
+
+                    Swal.alert('Error', errorMessages, 'error');
+                }
+            });
+        }
+
+        function addTemplateSetupCharacteristic(workcenter_structure_id, group_id = '', characteristic_description = '', characteristic_cols = '', characteristic_order = '', characteristic_id = '', template_id = '') {
+            Swal.loading();
+
+            let url = '/workcenter/create-template-setup/' + workcenter_structure_id;
+
+            if (group_id) {
+                url += '?group_id=' + group_id;
+            }
+
+            let params = [];
+            if (characteristic_description) {
+                params.push('characteristic_description=' + encodeURIComponent(characteristic_description));
+            }
+            if (characteristic_cols) {
+                params.push('characteristic_cols=' + encodeURIComponent(characteristic_cols));
+            }
+            if (characteristic_order) {
+                params.push('characteristic_order=' + encodeURIComponent(characteristic_order));
+            }
+            if (characteristic_id) {
+                params.push('characteristic_id=' + encodeURIComponent(characteristic_id));
+            }
+            if (template_id) {
+                params.push('template_id=' + encodeURIComponent(template_id));
+            }
+            if (params.length > 0) {
+                url += (url.includes('?') ? '&' : '?') + params.join('&');
+            }
+
+            $.ajax({
+                type: 'GET',
+                url: url,
+                success: function(result) {
+                    Swal.close();
+                    $('#frmTemplateSetup').empty();
+                    $('#frmTemplateSetup').html(result);
+
+                    document.getElementById('frmTemplateSetup').classList.remove('hidden');
+                    document.getElementById('brwTemplateSetup').classList.add('hidden');
+                },
+                error: function(response) {
+                    const message = response.responseJSON?.message || 'Unknown error.';
+                    Swal.close();
+                    Swal.alert('Error', message, 'error');
+                }
+            });
+        }
+
+        function showTableSetup(workcenter_structure_id) {
+            Swal.loading();
+            $.ajax({
+                type: 'GET',
+                url: '/workcenter/show-table-setup/' + workcenter_structure_id,
+                success: function(result) {
+                    Swal.close();
+                    $('#brwTemplateSetup').empty();
+                    $('#brwTemplateSetup').html(result);
+
+                    document.getElementById('brwTemplateSetup').classList.remove('hidden');
+                    document.getElementById('frmTemplateSetup').classList.add('hidden');
+                    document.getElementById('duplicateTemplateSetup').classList.add('hidden');
+
+                    nestedTable(workcenter_structure_id);
+
+                },
+                error: function(response) {
+                    const message = response.responseJSON?.message || 'Unknown error.';
+                    Swal.close();
+                    Swal.alert('Error', message, 'error');
+                }
+            });
+        }
+
+        function deleteSetupTemplateCharacteristic(workcenter_structure_id, group_id, characteristic_description, characteristic_cols, characteristic_order, characteristic_id, template_id) {
+            const url = '/workcenter/templateRemove/' + template_id + '/' + workcenter_structure_id;
+
+            Swal.alert_dialog_confirmation(
+                'Confirm Remove?',
+                'Waiting decision',
+                null,
+                function() {
+
+                    $.ajax({
+                        type: 'DELETE',
+                        url: url,
+                        data: {
+                            _token: '". csrf_token() ."'
+                        },
+                        success: function(response) {
+                            Swal.close();
+                            if (response.success === true) {
+                                $('#cols_input_setup').val('');
+                                $('#order_input_setup').val('');
+                                $('#Groupcharacteristic_selected').val('');
+                                $('#characteristicSetup_selected').val('');
+
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function() {
+                                    addTemplateSetupCharacteristic(
+                                        workcenter_structure_id,
+                                        group_id,
+                                        '',
+                                        '',
+                                        '',
+                                        '',
+                                        template_id
+                                    );
+                                });
+                            } else {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function() {
+                                    showTableSetup(workcenter_structure_id);
+                                });
+                            }
+                        },
+                        error: function(response) {
+                            Swal.close();
+                            Swal.alert('Error', response.message || 'Unexpected error', 'error');
+                        }
+                    });
+
+                },
+                function() {
+
+                },
+                'Yes',
+                'No'
+            );
+
+        }
+
+        function fnFormatDetails(characteristic_group_id) {
+            var sOut = '';
+            sOut += '<table id=\"gridSubTable_' + characteristic_group_id + '\" class=\"table display mb-0\" style=\"width:100%\" cellspacing=\"0\">';
+            sOut += '<thead>';
+            sOut += '<tr>';
+            sOut += '<th>Order</th>';
+            sOut += '<th>Characteristic</th>';
+            sOut += '<th>Cols</th>';
+            sOut += '</tr>';
+            sOut += '</thead>';
+            sOut += '</table>';
+            return sOut;
+        }
+
+        function nestedTable(id) {
+
+            const url = '/workcenter/group-details/' + id + '/';
+
+            TableHtml = $('#exampleTable').html();
+            gridTableHtml = $('#gridTable').html();
+
+            var nTh = document.createElement('th');
+            var nTd = document.createElement('td');
+            nTd.innerHTML = '<img src=\"". asset('assets/images/gridOpen.png') ."\" alt=\"Expand/Collapse\">';
+            nTd.className = 'center';
+
+            $('#gridTable thead tr').each(function () {
+                this.insertBefore(nTh, this.childNodes[0]);
+            });
+
+            $('#gridTable tbody tr').each(function () {
+                this.insertBefore(nTd.cloneNode(true), this.childNodes[0]);
+            });
+
+            objGridTable = $('#gridTable').DataTable({
+                processing: true,
+                serverSide: false,
+                bJQueryUI: true,
+                searching: true,
+                paging: false,
+                scrollX: true,
+                rowReorder: {
+                    selector: 'td.reorder',
+                    snapX: true
+                },
+                columnDefs: [
+                    {
+                        targets: 0,
+                        searchable: false,
+                        orderable: false,
+                        width: '15px'
+                    },
+                    {
+                        targets: 1,
+                        visible: false,
+                        searchable: false,
+                        orderable: false,
+                    },
+                    {
+                        targets: 2,
+                        orderable: false,
+                        className: 'reorder',
+                    },
+                    {
+                        targets: -1,
+                        width: '250px',
+                        orderable: false,
+                    }
+                ]
+            });
+
+            objGridTable.on('row-reorder', function (e, diff, edit) {
+                if (diff.length === 0) {
+                    return;
+                }
+
+                let novasOrdems = [];
+
+                for (let i = 0; i < diff.length; i++) {
+                    let row = diff[i].node;
+                    let id = $(row).data('id');
+                    let novaOrdem = (diff[i].newPosition)+1;
+                    novasOrdems.push({
+                        id: id,
+                        ordemDestino: novaOrdem
+                    });
+                }
+
+                $.ajax({
+                    url: '/workcenter/update-group-order',
+                    method: 'POST',
+                    data: {
+                        _token: '". csrf_token() ."',
+                        workcenter_structure_id: id,
+                        novasOrdems: novasOrdems
+                    },
+                    success: function(response) {
+                        Swal.close();
+                            if (response.success) {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ showTableSetup(id); });
+                            } else {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){ showTableSetup(id); });
+                            }
+                    },
+                    error: function(response) {
+                       Swal.close();
+                            Swal.alert('Error', response.message, 'error');
+                    }
+                });
+            });
+
+            $('#gridTable tbody').on('click', 'td img', function () {
+                var nTr = $(this).closest('tr')[0];
+                var characteristic_group_id = objGridTable.row(nTr).data()[1];
+
+                objGridTable.rows().every(function () {
+                    if (this.node() !== nTr && this.child.isShown()) {
+                        $('img', this.node()).attr('src', '". asset('assets/images/gridOpen.png') ."'); // reseta o ícone
+                        this.child.hide(); // fecha a linha
+                    }
+                });
+
+                if (objGridTable.row(nTr).child.isShown()) {
+                    this.src = '". asset('assets/images/gridOpen.png') ."';
+                    objGridTable.row(nTr).child.hide();
+                } else {
+                    this.src = '". asset('assets/images/gridClose.png') ."';
+                    objGridTable.row(nTr).child(fnFormatDetails(characteristic_group_id)).show();
+
+                    objGridSubTable = $('#gridSubTable_' + characteristic_group_id).DataTable({
+                        processing: true,
+                        serverSide: true,
+                        ajax: {
+                            url: url + characteristic_group_id,
+                            type: 'GET'
+                        },
+                        bJQueryUI: true,
+                        searching: false,
+                        paging: false,
+                        info: false,
+                        autoWidth: false,
+                        scrollX: true,
+                        rowReorder: true,
+                        columns: [
+                            { data: 'order', className: 'text-start' },
+                            { data: 'description', className: 'text-start' },
+                            { data: 'cols', className: 'text-start' },
+                            { data: 'id', className: 'text-start' }
+                        ],
+                        columnDefs: [
+                            { targets: 0, width: '60px', orderable: false, className: 'reorder'},   // Order
+                            { targets: 1, width: '200px', orderable: false},  // Characteristic
+                            { targets: 2, width: '60px', orderable: false },   // Cols
+                            { targets: 3, width: '1px', orderable: false, visible: false },   // id
+                        ],
+                        createdRow: function(row, data, dataIndex) {
+                            $(row).attr('data-id', data.id);
+                        }
+                    });
+
+
+                    objGridSubTable.on('row-reorder', function (e, diff, edit) {
+                        if (diff.length === 0) {
+                            return;
+                        }
+
+                        let novasOrdems = [];
+
+                        for (let i = 0; i < diff.length; i++) {
+                            let row = diff[i].node;
+
+                            let id = $(row).data('id');
+                            let novaOrdem = (diff[i].newPosition)+1;
+                            novasOrdems.push({
+                                id: id,
+                                ordemDestino: novaOrdem
+                            });
+                        }
+
+                        $.ajax({
+                            url: '/workcenter/update-characteristic-order',
+                            method: 'POST',
+                            data: {
+                                _token: '". csrf_token() ."',
+                                workcenter_structure_id: id,
+                                novasOrdems: novasOrdems
+                            },
+                            success: function(response) {
+                                Swal.close();
+                                    if (response.success) {
+                                        Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ objGridSubTable.ajax.reload(); });
+                                    } else {
+                                        Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){  });
+                                    }
+                            },
+                            error: function(response) {
+                               Swal.close();
+                                    Swal.alert('Error', response.message, 'error');
+                            }
+                        });
+                    });
+
+
+                }
+            });
+
+        }
+
+        function showTableValidation(id) {
+            objGridTableValidation = $('#gridTableValidation').DataTable({
+                processing: true,
+                serverSide: false,
+                bJQueryUI: true,
+                searching: true,
+                paging: false,
+                scrollX: true,
+                rowReorder: {
+                    selector: 'td.reorder',
+                    snapX: true
+                },
+                columnDefs: [
+                    {
+                        targets: 0,
+                        searchable: false,
+                        orderable: false,
+                        className: 'reorder'
+                    },
+                    {
+                        targets: 1,
+                        searchable: false,
+                        orderable: false
+                    },
+                    {
+                        targets: 2,
+                        searchable: false,
+                        orderable: false
+                    },
+                    {
+                        targets: 3,
+                        searchable: false,
+                        orderable: false
+                    },
+                    {
+                        targets: -1,
+                        width: '250px',
+                        searchable: false,
+                        orderable: false
+                    }
+                ]
+            });
+
+            objGridTableValidation.on('row-reorder', function (e, diff, edit) {
+                if (diff.length === 0) {
+                    return;
+                }
+
+                let novasOrdems = [];
+
+                for (let i = 0; i < diff.length; i++) {
+                    let row = diff[i].node;
+                    let id = $(row).data('id');
+                    let novaOrdem = (diff[i].newPosition)+1;
+                    novasOrdems.push({
+                        id: id,
+                        ordemDestino: novaOrdem
+                    });
+                }
+
+                $.ajax({
+                    url: '/workcenter/update-characteristic-order',
+                    method: 'POST',
+                    data: {
+                        _token: '". csrf_token() ."',
+                        workcenter_structure_id: id,
+                        novasOrdems: novasOrdems
+                    },
+                    success: function(response) {
+                        Swal.close();
+                            if (response.success) {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ getWorkCenterCharacteristic(id); });
+                            } else {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){ getWorkCenterCharacteristic(id);  });
+                            }
+                    },
+                    error: function(response) {
+                        Swal.close();
+                            Swal.alert('Error', response.message, 'error');
+                    }
+                });
+            });
+
+        }
+
+        function deleteTemplateSetupCharacteristic(workcenter_structure_id, group_id) {
+
+            Swal.alert_dialog_confirmation(
+                'Confirm Remove?',
+                'Waiting decision',
+                null,
+                function() {
+                    $.ajax({
+                        type: 'DELETE',
+                        url: '/workcenter/template-setup/remove-group/' + group_id + '/' + workcenter_structure_id,
+                        data: {
+                            id: group_id,
+                            workcenter_structure_id: workcenter_structure_id,
+                            _token: '". csrf_token() ."'
+                        },
+                        success: function(response) {
+                            Swal.close();
+                            if (response.success) {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ showTableSetup(workcenter_structure_id); });
+                            } else {
+                                Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){ showTableSetup(workcenter_structure_id); });
+                            }
+                        },
+                        error: function(response) {
+                            Swal.close();
+                            Swal.alert('Error', response.message, 'error');
+                        }
+                    });
+                },
+                function() {
+
+                },
+                'Yes',
+                'No'
+            );
+
+        }
+
+        function printLabel(workcenter_structure_code, workcenter_structure_id) {
+            $.ajax({
+                url: 'workcenter/generate-label',
+                type: 'POST',
+                data: {
+                    _token: '". csrf_token() ."',
+                    workcenter_structure_code: workcenter_structure_code,
+                    workcenter_structure_id: workcenter_structure_id
+                },
+                success: function(response) {
+                    if (response.success && response.labels && response.labels.length > 0) {
+                        var newWindow = window.open('', '_blank');
+                        newWindow.document.write('<html><head><title>QR Codes</title>');
+
+                        newWindow.document.write('<style>');
+                        newWindow.document.write('body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }');
+                        newWindow.document.write('.page-title { text-align: center; color: #3a3a3a; margin-bottom: 20px; font-size: 24px; font-weight: 500; }');
+                        newWindow.document.write('.container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 1200px; margin: 0 auto; }');
+                        newWindow.document.write('.label-card { background: white; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; width: 26%; box-sizing: border-box; box-shadow: 0 3px 6px rgba(0,0,0,0.08); text-align: center; transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column; }');
+                        newWindow.document.write('.label-card:hover { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(0,0,0,0.12); }');
+                        newWindow.document.write('.label-header { border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; margin-bottom: 8px; }');
+                        newWindow.document.write('.code { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }');
+                        newWindow.document.write('.name { font-size: 12px; color: #5a6268; margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }');
+                        newWindow.document.write('.qr-code { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 5px 0; }');
+                        newWindow.document.write('.qr-code img { max-width: 100%; height: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 4px; }');
+                        newWindow.document.write('.print-button { position: fixed; top: 20px; right: 20px; padding: 10px 18px; background-color: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }');
+                        newWindow.document.write('.print-button:hover { background-color: #3367d6; }');
+                        newWindow.document.write('.print-info { text-align: center; font-size: 12px; color: #666; margin-top: 10px; margin-bottom: 20px; }');
+                        newWindow.document.write('@media print {');
+                        newWindow.document.write('  body { background: white; padding: 10px; }');
+                        newWindow.document.write('  .page-title, .print-button, .print-info { display: none; }');
+                        newWindow.document.write('  .label-card { break-inside: avoid; page-break-inside: avoid; box-shadow: none; border: 1px solid #eee; width: 30%; margin-bottom: 15px; }');
+                        newWindow.document.write('  .label-card:hover { transform: none; box-shadow: none; }');
+                        newWindow.document.write('  .container { gap: 15px; }');
+                        newWindow.document.write('}');
+                        newWindow.document.write('</style>');
+
+                        newWindow.document.write('</head><body>');
+                        newWindow.document.write('<h1 class=\"page-title\">Labels QR Code</h1>');
+                        newWindow.document.write('<div class=\"print-info\">Total of labels: ' + response.labels.length + '</div>');
+                        newWindow.document.write('<button class=\"print-button\" onclick=\"window.print()\">Print Labels</button>');
+                        newWindow.document.write('<div class=\"container\">');
+
+                        response.labels.forEach(function(label) {
+                            newWindow.document.write('<div class=\"label-card\">');
+                            newWindow.document.write('<div class=\"label-header\">');
+                            newWindow.document.write('<div class=\"code\">Code: ' + label.code + '</div>');
+                            newWindow.document.write('<div class=\"name\">Name: ' + label.name + '</div>');
+                            newWindow.document.write('</div>');
+                            newWindow.document.write('<div class=\"qr-code\">' + label.qrcode + '</div>');
+                            newWindow.document.write('</div>');
+                        });
+
+                        newWindow.document.write('</div>');
+
+                        newWindow.document.write('<script>');
+
+                        newWindow.document.write('</\script>');
+
+                        newWindow.document.write('</body></html>');
+
+                        newWindow.document.close();
+                    } else {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Aviso',
+                            text: response.total === 0 ? 'Nenhuma etiqueta encontrada.' : 'Erro ao gerar as etiquetas QR code'
+                        });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro',
+                        text: 'Erro na comunicação com o servidor: ' + error
+                    });
+                }
+            });
+        }
+
+        function getGroupOrder(selectedItem) {
+
+            if (selectedItem && selectedItem.ID) {
+                $('#groupOrderWrapper').removeClass('hidden');
+
+                if ($('#group_order_input').val()) {
+                    return;
+                }
+
+                $.ajax({
+                    url: 'workcenter/get-grouporder',
+                    type: 'POST',
+                    data: {
+                        _token: '". csrf_token() ."',
+                        group_id: selectedItem.ID
+                    },
+                    success: function(response) {
+                    console.log('teste');
+                        if (response.success) {
+                            if (response.order !== undefined) {
+                                $('#group_order_input').val(response.order);
+                            }
+                        } else {
+                            console.error('Erro ao buscar ordem do grupo:', response.message);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Erro na comunicação com o servidor:', error);
+                    }
+                });
+            }
+        }
+
+    function togglePanels() {
+
+        const panelTreeWrapper = document.getElementById('panelTreeWrapper');
+        const panelTabsWrapper = document.getElementById('panelTabsWrapper');
+        const toggleIcon = document.getElementById('togglePanelIcon');
+        
+        const isPanelVisible = !panelTreeWrapper.classList.contains('hidden');
+        
+        if (isPanelVisible) {
+
+            panelTreeWrapper.classList.add('hidden');
+
+            panelTabsWrapper.classList.remove('lg:col-span-8', '2xl:col-span-8');
+            panelTabsWrapper.classList.add('lg:col-span-12', '2xl:col-span-12');
+            
+            toggleIcon.setAttribute('icon', 'mdi:arrow-collapse');
+            toggleIcon.classList.add('rotate-180');
+        } else {
+
+            panelTreeWrapper.classList.remove('hidden');
+
+            panelTabsWrapper.classList.remove('lg:col-span-12', '2xl:col-span-12');
+            panelTabsWrapper.classList.add('lg:col-span-8', '2xl:col-span-8');
+
+            toggleIcon.setAttribute('icon', 'mdi:arrow-expand');
+            toggleIcon.classList.remove('rotate-180');
+        }
+    }
+
+    function duplicateTemplateValidation (workcenter_structure_id) {
+        
+        Swal.loading();
+        $.ajax({
+            type: 'GET',
+            url: '/workcenter/duplicate-template-validation/' + workcenter_structure_id,
+            success: function(result) {
+                Swal.close();
+                $('#duplicateTemplateValidation').empty();
+                $('#duplicateTemplateValidation').html(result);
+
+                document.getElementById('duplicateTemplateValidation').classList.remove('hidden');
+                document.getElementById('brwTemplateValidation').classList.add('hidden');
+            },
+            error: function(response) {
+                Swal.close();
+                Swal.alert('Error', response.message, 'error');
+            }
+        });
+    }
+
+    function confirmDuplicate (workcenter_id, machine_selected_id)  {
+       
+       swal.loading();
+        $.ajax({
+            type: 'POST',
+            url: '/workcenter/confirm-duplicate-template-validation',
+            data: {
+                _token: '". csrf_token() ."',
+                workcenter_id: workcenter_id,
+                machine_selected_id: machine_selected_id
+            },
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ hideFormShowTable(response.workcenter_id); });
+                } else {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){ hideFormShowTable(response.workcenter_id); });
+                }
+            },
+            error: function(response) {
+                Swal.close();
+                Swal.alert('Error', response.message, 'error');
+            }
+        });
+    }
+
+    function duplicateTemplateSetup (workcenter_structure_id) {
+        Swal.loading();
+        $.ajax({
+            type: 'GET',
+            url: '/workcenter/duplicate-template-setup/' + workcenter_structure_id,
+            success: function(result) {
+                Swal.close();
+                $('#duplicateTemplateSetup').empty();
+                $('#duplicateTemplateSetup').html(result);
+
+                document.getElementById('duplicateTemplateSetup').classList.remove('hidden');
+                document.getElementById('brwTemplateSetup').classList.add('hidden');
+            },
+            error: function(response) {
+                Swal.close();
+                Swal.alert('Error', response.message, 'error');
+            }
+        });
+    }
+
+    function confirmDuplicateSetup (workcenter_id, machine_selected_id)  {
+
+    
+       swal.loading();
+        $.ajax({
+            type: 'POST',
+            url: '/workcenter/confirm-duplicate-template-setup',
+            data: {
+                _token: '". csrf_token() ."',
+                workcenter_id: workcenter_id,
+                machine_selected_id: machine_selected_id
+            },
+            success: function(response) {
+                Swal.close();
+                if (response.success) {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){ showTableSetup(response.workcenter_id); });
+                } else {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){ showTableSetup(response.workcenter_id); });
+                }
+            },
+            error: function(response) {
+                Swal.close();
+                Swal.alert('Error', response.message, 'error');
+            }
+        });
+    }
+
+    function getCharacteristicUOM (selectedItem) {
+    
+        if (selectedItem && selectedItem.ID) {
+        $('#charUOMWrapper').removeClass('hidden');
+
+        if ($('#char_uom_input').val()) {
+            return;
+        } ;
+        $.ajax({
+            url: 'workcenter/get-characteristic-uom',
+            type: 'POST',
+            data: {
+                _token: '". csrf_token() ."',
+                characteristic_id: selectedItem.ID
+            },
+            success: function(response) {
+                if (response.success) {
+                    if (response.uom !== undefined) {
+                        $('#char_uom_input').val(response.uom);
+                    }
+                } else {
+                    console.error('Erro ao buscar UOM:', response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Erro na comunicação com o servidor:', error);
+            }
+        });
+    }
+    }
+
+    function toggleCriticalWorkcenter(isChecked, workcenterId) {
+
+        $.ajax({
+            type: 'POST',
+            url: '/workcenter/toggle-critical-workcenter/',
+            data: {
+                _token: '". csrf_token() ."',
+                isChecked: isChecked,
+                workcenterId: workcenterId
+            },
+            success: function(response) {
+                if (response.success) {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){});
+                } else {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){});
+                }
+            },
+            error: function(response) {
+                Swal.close();
+                Swal.alert('Error', response.message, 'error');
+            }
+        });
+    }
+
+    function toggleDepartmentOrder(isChecked, workcenterId) {
+        $.ajax({
+            type: 'POST',
+            url: '/workcenter/toggle-department-order/',
+            data: {
+                _token: '". csrf_token() ."',
+                isChecked: isChecked,
+                workcenterId: workcenterId
+            },
+            success: function(response) {
+                if (response.success) {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'success', function(){});
+                } else {
+                    Swal.alert_auto_close(response.message, 'Please Wait...', 'error', function(){});
+                }
+            },
+            error: function(response) {
+                Swal.close();
+                Swal.alert('Error', response.message, 'error');
+            }
+        });
+    }
+
+
+    </script>";
+@endphp
+
+@section('content')
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="col-span-12 lg:col-span-4 2xl:col-span-4" id="panelTreeWrapper">
+            <div class="card h-full p-0 border-0 overflow-auto">
+                <div class="card-body p-6" id="paneltree">
+                    <x-customs.treeview :tree="$tree" />
+                </div>
+            </div>
+        </div>
+        <div class="col-span-12 lg:col-span-8 2xl:col-span-8" id="panelTabsWrapper">
+            <div class="card h-full p-0 border-0">
+
+                <div class="card-header py-4 px-6 bg-white dark:bg-neutral-700 border-b border-neutral-200 dark:border-neutral-600 flex justify-between items-center">
+                    <h6 class="text-lg mb-0" id="headerWorcenterDetail">Select a Machine to Edit</h6>
+
+                    <div class="flex items">
+                    <iconify-icon 
+                        id="togglePanelIcon"
+                        icon="mdi:arrow-expand"
+                        class="text-2xl text-gray-500 cursor-pointer hover:text-blue-500 transition-all duration-300 ease-in-out transform rotate-0"
+                        onclick="togglePanels()"
+                    ></iconify-icon>
+                    </div>
+                </div>
+
+
+                <div class="card-body p-3 max-h-[568px] overflow-y-auto pr-2" id="paneltabs">
+                    <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
+                        <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500 dark:text-gray-400" id="default-tab" data-tabs-toggle="#default-tab-content" role="tablist">
+                            <li role="presentation">
+                                <button class="inline-flex items-center px-4 py-2.5 font-semibold border-b-2 rounded-t-lg hover:text-blue-600 hover:border-blue-600 dark:hover:text-blue-500 transition-all" id="default-info-tab" data-tabs-target="#default-info" type="button" role="tab" aria-controls="default-info" aria-selected="false">
+                                    <i class="ri-information-2-fill text-gray-400 text-xl me-2"></i>
+                                    Info
+                                </button>
+                            </li>
+                            <li role="presentation">
+                                <button class="inline-flex items-center px-4 py-2.5 font-semibold border-b-2 rounded-t-lg hover:text-blue-600 hover:border-blue-600 dark:hover:text-blue-500 transition-all" id="default-downtime-tab" data-tabs-target="#default-downtime" type="button" role="tab" aria-controls="default-downtime" aria-selected="false">
+                                    <i class="ri-pause-circle-fill text-gray-400 text-xl me-2"></i>
+                                    Downtime
+                                </button>
+                            </li>
+                            <li role="presentation">
+                                <button class="inline-flex items-center px-4 py-2.5 font-semibold border-b-2 rounded-t-lg hover:text-blue-600 hover:border-blue-600 dark:hover:text-blue-500 transition-all" id="default-profile-tab" data-tabs-target="#default-profile" type="button" role="tab" aria-controls="default-profile" aria-selected="false">
+                                    <i class="ri-shape-line text-gray-400 text-xl me-2"></i>
+                                    Template Validation
+                                </button>
+                            </li>
+                            <li role="presentation">
+                                <button class="inline-flex items-center px-4 py-2.5 font-semibold border-b-2 rounded-t-lg hover:text-blue-600 hover:border-blue-600 dark:hover:text-blue-500 transition-all" id="default-setup-tab" data-tabs-target="#default-setup" type="button" role="tab" aria-controls="default-setup" aria-selected="false">
+                                    <i class="ri-settings-3-line text-gray-400 text-xl me-2"></i>
+                                    Template Setup
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div id="default-tab-content">
+
+                        <!-- content das tabs -->
+                        <div id="default-info" role="tabpanel" aria-labelledby="default-info-tab">
+                            <!-- Conteúdo da tab Info -->
+                        </div>
+                        <div id="default-downtime" role="tabpanel" aria-labelledby="default-downtime-tab">
+                            <!-- content tab 2 -->
+                        </div>
+                        <div id="default-profile" role="tabpanel" aria-labelledby="default-profile-tab">
+                            <!-- content tab 3 -->
+                        </div>
+                        <div id="default-setup" role="tabpanel" aria-labelledby="default-setup-tab">
+                            <!-- content tab 4 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+@endsection

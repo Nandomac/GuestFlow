@@ -1,0 +1,124 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\WorkcenterStructureController;
+
+Route::get('/workcenter', [WorkcenterStructureController::class, 'showWorkcenterTree'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter');
+
+Route::get('/workcenter/sync', [WorkcenterStructureController::class, 'syncWorkcenters'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.sync');
+
+Route::get('/workcenter/details/{id?}', [WorkcenterStructureController::class, 'getWorkcenterDetails'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.details');
+
+Route::post('/workcenter/toggle-downtime', [WorkcenterStructureController::class, 'updateDowntimeStatus'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.toggleDowntime');
+
+Route::post('/save-info', [WorkcenterStructureController::class, 'saveWorkcenterInfo'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.saveInfo');
+
+Route::get('/workcenter/syncDowntimes', [WorkcenterStructureController::class, 'syncGlobalDowntimes'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.syncDowntimes');
+
+Route::post('/workcenter/saveWorkCenterCharacteristicValidation', [WorkcenterStructureController::class, 'saveWorkCenterCharacteristicValidation'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.saveWorkCenterCharacteristicValidation');
+
+Route::get('/workcenter/getWorkCenterCharacteristic/{id?}', [WorkcenterStructureController::class, 'getWorkCenterCharacteristic'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.getWorkCenterCharacteristic');
+
+Route::get('/workcenter/searchAvailableValidationCharacteristics/{id}/{search?}', [WorkcenterStructureController::class, 'searchAvailableValidationCharacteristics'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.searchAvailableValidationCharacteristics');
+
+Route::delete('/workcenter/templateRemove/{id?}/{workcenter_structure_id?}', [WorkcenterStructureController::class, 'deleteCharacteristicFromStructure'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.templateRemove');
+
+Route::get('/workcenter/searchSetupCharacteristics/{id}/{search?}', [WorkcenterStructureController::class, 'searchAvailableSetupCharacteristics'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.searchSetupCharacteristics');
+
+Route::get('/workcenter/searchGroupCharacteristics/{id}/{search?}', [WorkcenterStructureController::class, 'searchGroupCharacteristics'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.searchGroupCharacteristics');
+
+Route::post('/workcenter/saveWorkCenterCharacteristicSetup', [WorkcenterStructureController::class, 'saveWorkCenterCharacteristicSetup'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.saveWorkCenterCharacteristicSetup');
+
+Route::get('/workcenter/create-template-setup/{id}', [WorkcenterStructureController::class, 'createTemplateSetup'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.createTemplateSetup');
+
+Route::get('/workcenter/show-table-setup/{workcenter_id}', [WorkcenterStructureController::class, 'showTableSetup'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.showTableSetup');
+
+Route::delete('/workcenter/template-setup-remove/{template_id?}/{workcenter_structure_id?}', [WorkcenterStructureController::class, 'deleteCharacteristicFromStructure'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.templateSetupRemove');
+
+Route::get('/workcenter/group-details/{id}/{characteristic_group_id?}', [WorkcenterStructureController::class, 'getWorkCenterGroupCharacteristic'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.group-details');
+
+Route::delete('/workcenter/template-setup/remove-group/{group_id}/{workcenter_structure_id}', [WorkcenterStructureController::class, 'deleteCharacteristicGroupFromStructure'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.templateSetupRemoveGroup');
+
+Route::post('workcenter/generate-label', [WorkcenterStructureController::class, 'generateLabel'])
+    -> middleware(['auth', 'verified'])
+    ->name('workcenter.generateLabel');
+
+Route::post('/workcenter/update-group-order', [WorkcenterStructureController::class, 'updateGroupOrder'])
+    -> middleware(['auth', 'verified'])
+    ->name('workcenter.updateOrder');
+
+Route::post('workcenter/get-grouporder', [WorkcenterStructureController::class, 'getGroupOrder'])
+    -> middleware(['auth', 'verified'])
+    ->name('workcenter.getGroupOrder');
+
+Route::post('workcenter/get-characteristic-uom', [WorkcenterStructureController::class, 'getCharacteristicUOM'])
+    -> middleware(['auth', 'verified'])
+    ->name('workcenter.getCharacteristicUOM');
+
+Route::post('/workcenter/update-characteristic-order', [WorkcenterStructureController::class, 'updateCharacteristicOrder'])
+    -> middleware(['auth', 'verified'])
+    ->name('workcenter.updateCharacteristicOrder');
+
+Route::get('/workcenter/getMaxOrderCharacteristicAndGroup/{id?}/{characteristic_group_id?}', [WorkcenterStructureController::class, 'getMaxOrderCharacteristicAndGroup'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.getMaxOrderCharacteristicAndGroup');
+
+Route::get('workcenter/duplicate-template-validation/{id}', [WorkcenterStructureController::class, 'duplicateTemplateValidation'])
+    ->middleware('auth')
+    ->name('workcenter.duplicateTemplateValidation');
+
+Route::post('/workcenter/confirm-duplicate-template-validation', [WorkcenterStructureController::class, 'confirmDuplicateValidation'])
+    ->middleware('auth')
+    ->name('workcenter.confirmDuplicateValidation');
+
+Route::get('workcenter/duplicate-template-setup/{id}', [WorkcenterStructureController::class, 'duplicateTemplateSetup'])
+    ->middleware('auth')
+    ->name('workcenter.duplicateTemplateSetup');
+
+Route::post('/workcenter/confirm-duplicate-template-setup', [WorkcenterStructureController::class, 'confirmDuplicateSetup'])
+    ->middleware('auth')
+    ->name('workcenter.confirmDuplicateSetup');
+
+Route::post('/workcenter/toggle-critical-workcenter', [WorkcenterStructureController::class, 'toggleCritical'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.toggleCritical');
+
+Route::post('/workcenter/toggle-department-order', [WorkcenterStructureController::class, 'toggleDepartmentOrder'])
+    ->middleware(['auth', 'verified'])
+    ->name('workcenter.toggleDepartmentOrder');

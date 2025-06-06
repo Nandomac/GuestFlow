@@ -1,0 +1,208 @@
+<div class="container mx-auto">
+    <div class="relative w-full max-w-xs mx-auto mt-4 hidden" id="duplicateTemplateValidation">
+            <!-- Duplicate Template -->
+    </div>
+    <div class="relative w-full max-w-xs mx-auto mt-4 hidden" id="frmTemplateValidation">
+        <div id="searchCharacteristicWrapper" class="">
+            <x-customs.search
+            :api-url="route('workcenter.searchValidationCharacteristics', ['id' => $workcenter->id, 'search' => ''])"
+            searchName="characteristic"
+            :initial="''"
+            :selected-label="''"
+            :show-code="false"
+            :label="'Search Validation Characteristics'"
+            isSearchable="true"
+            :onSelectCallbackName=null
+            />
+        </div>
+
+        <input type="hidden" id="workcenter_structure_id" value="{{ $workcenter->id }}">
+        <input type="hidden" id="template_id" value="">
+
+        <div class="grid grid-cols-2 gap-4 mb-4 mt-4">
+            <div class="w-full">
+                <label for="cols_input" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Cols</label>
+                <input type="text" id="cols_input" value="2"
+                    class="block w-full p-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    placeholder="Number of cols">
+            </div>
+            <div class="w-full">
+                <label for="order_input" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Order</label>
+                <input type="text" id="order_input"
+                    class="block w-full p-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    placeholder="Order Number">
+            </div>
+        </div>
+        <input type="hidden" id="characteristic_id">
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="col-span-2 flex items-end gap-2">
+                <button type="button" class="w-full flex justify-center items-center px-4 py-2.5 text-white bg-success-600 hover:bg-success-700 font-semibold rounded-lg transition duration-200"     onclick="saveCharacteristic(
+                    document.getElementById('characteristic_selected_id').value,
+                    document.getElementById('cols_input').value,
+                    document.getElementById('order_input').value,
+                    document.getElementById('workcenter_structure_id').value,
+                    document.getElementById('template_id').value,
+
+                )">
+                    <i class="ri-save-fill text-white-400 text-xl me-2"></i>
+                    Save
+                </button>
+
+                <button type="button" onclick="hideFormShowTable('{{ $workcenter->id }}')" class="w-full bg-neutral-300 text-neutral-700 hover:bg-neutral-400 btn-sm px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5">
+                    <iconify-icon icon="icon-park-outline:close" class="text-neutral-700 text-lg mr-2"></iconify-icon>
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-span-12 lg:col-span-6 block" id="brwTemplateValidation">
+        <div class="card border-0 overflow-hidden">
+            <div class="card-header flex justify-between items-center !border-b-0">
+                <h5 class="card-title text-lg mb-0">Template Validation</h5>
+                <div class="row flex gap-2">
+                <button type="button" onclick="duplicateTemplateValidation('{{ $workcenter->id }}')" class="flex justify-center items-center px-3 py-2 text-white bg-primary-600 hover:bg-primary-700 font-medium rounded-lg transition duration-200">
+                        <iconify-icon icon="mdi:content-copy" class="text-white text-lg mr-1"></iconify-icon>
+                        Duplicate Template
+                    </button>
+	                <button type="button" onclick="hideTableShowForm({{ $workcenter->id }})" class="flex justify-center items-center px-3 py-2 text-white bg-primary-600 hover:bg-primary-700 font-medium rounded-lg transition duration-200">
+	                    <iconify-icon icon="mdi:plus" class="text-white text-lg mr-1"></iconify-icon>
+	                    Add Characteristic
+	                </button>
+				</div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    @php
+                        $validationCharacteristics = $workcenter->characteristics
+                            ->where('type', 'validation')
+                            ->sortBy(fn($characteristic) => $characteristic->pivot->order);
+                    @endphp
+
+                    <table id="gridTableValidation" class="table striped-table mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="!bg-white dark:!bg-neutral-700 border-b border-neutral-200 dark:border-neutral-600">Order</th>
+                                <th scope="col" class="!bg-white dark:!bg-neutral-700 border-b border-neutral-200 dark:border-neutral-600">Characteristic</th>
+                                <th scope="col" class="!bg-white dark:!bg-neutral-700 border-b border-neutral-200 dark:border-neutral-600">Cols</th>
+                                <th scope="col" class="!bg-white dark:!bg-neutral-700 border-b border-neutral-200 dark:border-neutral-600">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($validationCharacteristics as $characteristic)
+                                <tr data-id="{{ $characteristic->id }}" class="odd:bg-neutral-100 dark:odd:bg-neutral-600">
+                                    <td>{{ $characteristic->pivot->order }}</td>
+                                    <td>{{ $characteristic->description }}</td>
+                                    <td>{{ $characteristic->pivot->cols }}</td>
+                                    <td>
+                                        <button type="button"
+                                                class="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                onclick="editCharacteristic('{{ $characteristic->pivot->id }}', '{{ $characteristic->id }}', '{{ $characteristic->pivot->cols }}', '{{ $characteristic->pivot->order }}', '{{ $workcenter->id }}', '{{ $characteristic->pivot->id }}')">
+                                            Edit
+                                        </button>
+                                        <button type="button"
+                                                class="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                                onclick="deleteCharacteristic('{{ $characteristic->pivot->id }}', '{{ $workcenter->id }}')">
+                                            Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript para controlar a interação -->
+<script>
+
+    document.addEventListener('DOMContentLoaded', function () {
+        hideFormShowTable();
+    });
+
+
+    function hideFormShowTable(id) {
+        document.getElementById('frmTemplateValidation').classList.add('hidden');
+        document.getElementById('brwTemplateValidation').classList.remove('hidden');
+
+        getWorkCenterCharacteristic (id)
+    }
+
+    function hideTableShowForm(workcenter_structure_id) {
+        document.getElementById('brwTemplateValidation').classList.add('hidden');
+        document.getElementById('frmTemplateValidation').classList.remove('hidden');
+
+        // Limpar campos anteriores
+        document.getElementById('template_id').value = '';
+        document.getElementById('cols_input').value = '2';
+        document.getElementById('characteristic_selected_id').value = '';
+        document.getElementById('characteristic_id').value = '';
+        document.getElementById('searchCharacteristicWrapper').classList.remove('hidden');
+
+        const inputReadonly = document.getElementById('characteristic_name_input');
+        if (inputReadonly) {
+            inputReadonly.parentElement.remove();
+        }
+
+
+        Swal.loading();
+        $.ajax({
+            type: 'GET',
+            url: "{{ route('workcenter.getMaxOrderCharacteristicAndGroup', null) }}" + '/' + workcenter_structure_id,
+            success: function(response) {
+                Swal.close();
+                document.getElementById('order_input').value = response.maxOrder + 1;
+            },
+            error: function(response) {
+                Swal.close();
+                Swal.alert('Error', response.message, 'error');
+            }
+        });
+
+    }
+
+    function editCharacteristic(template_id, characteristicId, cols, order, workcenterId) {
+
+        document.getElementById('brwTemplateValidation').classList.add('hidden');
+        document.getElementById('frmTemplateValidation').classList.remove('hidden');
+
+        document.getElementById('template_id').value = template_id;
+        document.getElementById('cols_input').value = cols;
+        document.getElementById('order_input').value = order;
+        document.getElementById('characteristic_selected_id').value = characteristicId;
+        document.getElementById('workcenter_structure_id').value = workcenterId;
+
+        const characteristicName = event.target.closest('tr').cells[0].textContent;
+
+        let characteristicNameInput = document.getElementById('characteristic_name_input');
+
+        if (!characteristicNameInput) {
+
+            const containerDiv = document.createElement('div');
+            containerDiv.className = 'w-full mb-4';
+
+            const label = document.createElement('label');
+            label.htmlFor = 'characteristic_name_input';
+            label.className = 'block mb-2 text-sm font-medium text-gray-900 dark:text-white';
+            label.textContent = 'Characteristic';
+
+            characteristicNameInput = document.createElement('input');
+            characteristicNameInput.type = 'text';
+            characteristicNameInput.id = 'characteristic_name_input';
+            characteristicNameInput.className = 'block w-full p-2.5 text-sm text-gray-900 bg-gray-100 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white';
+            characteristicNameInput.readOnly = true;
+
+            containerDiv.appendChild(label);
+            containerDiv.appendChild(characteristicNameInput);
+
+            const gridDiv = document.querySelector('#frmTemplateValidation .grid.grid-cols-2.gap-4.mb-4.mt-4');
+            document.getElementById('frmTemplateValidation').insertBefore(containerDiv, gridDiv);
+        }
+
+        characteristicNameInput.value = characteristicName;
+        document.getElementById('searchCharacteristicWrapper').classList.add('hidden');
+    }
+</script>
