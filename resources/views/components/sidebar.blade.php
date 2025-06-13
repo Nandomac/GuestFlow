@@ -13,12 +13,17 @@
         <ul class="sidebar-menu" id="sidebar-menu">
             @foreach ($menus as $menu)
             @if ($menu->childs->isEmpty())
-                 <li>
-                    <a href="{{ route($menu->route) }}">
-                        <iconify-icon icon="{{ $menu->icon }}" class="menu-icon"></iconify-icon>
-                        <span>{{ $menu->title }}</span>
-                    </a>
-                </li>
+                @if ($menu->route == '')
+                    <li class="sidebar-menu-group-title">{{ $menu->title }}</li>
+                    <li></li>
+                @else
+                    <li>
+                        <a href="{{ route($menu->route) }}">
+                            <iconify-icon icon="{{ $menu->icon }}" class="menu-icon"></iconify-icon>
+                            <span>{{ $menu->title }}</span>
+                        </a>
+                    </li>
+                @endif
             @else
                 <li class="sidebar-menu-group-title">{{ $menu->title }}</li>
                 @foreach ($menu->childs as $child)

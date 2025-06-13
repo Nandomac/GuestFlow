@@ -16,25 +16,12 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 
+// Operation
+require __DIR__ . '/route_guestflow.php';
 
-require __DIR__ . '/route_workcenter_structure.php';
-require __DIR__ . '/route_workcenter_downtime_email.php';
-require __DIR__ . '/route_characteristic.php';
-require __DIR__ . '/route_characteristics_group.php';
-require __DIR__ . '/route_workcenter_part.php';
+// Oracle
 require __DIR__ . '/route_oracle.php';
-require __DIR__ . '/route_backprint.php';
-require __DIR__ . '/route_production_area.php';
-require __DIR__ . '/route_shoporder.php';
 
-
-// Exemplo
+// Security
 require __DIR__ . '/route_role.php';
-
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
-
 require __DIR__ . '/auth.php';

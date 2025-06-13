@@ -38,15 +38,15 @@ class DatabaseSeeder extends Seeder
         Permission::create(['name' => 'user_update']);
         Permission::create(['name' => 'user_delete']);
 
+        Permission::create(['name' => 'guest_access_aprove']);
+        Permission::create(['name' => 'my_section_guest']);
+
         // create roles and assign existing permissions
         $role1 = Role::create(['name' => 'user']);
         $role1->givePermissionTo('system_access');
 
         $role2 = Role::create(['name' => 'admin']);
-        $role2->givePermissionTo('user_view');
-        $role2->givePermissionTo('user_create');
-        $role2->givePermissionTo('user_update');
-        $role2->givePermissionTo('user_delete');
+        $role2->givePermissionTo('guest_access_aprove');
 
 
         $role3 = Role::create(['name' => 'SuperAdmin']);
